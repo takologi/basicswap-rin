@@ -100,6 +100,9 @@ DOGECOIN_VERSION_TAG = os.getenv("DOGECOIN_VERSION_TAG", "")
 RINCOIN_VERSION = os.getenv("RINCOIN_VERSION", "1.0.4")
 RINCOIN_VERSION_TAG = os.getenv("RINCOIN_VERSION_TAG", "")
 
+YENTEN_VERSION = os.getenv("YENTEN_VERSION", "6.0.4")
+YENTEN_VERSION_TAG = os.getenv("YENTEN_VERSION_TAG", "")
+
 
 known_coins = {
     "particl": (PARTICL_VERSION, PARTICL_VERSION_TAG, ("tecnovert",)),
@@ -116,6 +119,7 @@ known_coins = {
     "bitcoincash": (BITCOINCASH_VERSION, BITCOINCASH_VERSION_TAG, ("Calin_Culianu",)),
     "dogecoin": (DOGECOIN_VERSION, DOGECOIN_VERSION_TAG, ("tecnovert",)),
     "rincoin": (RINCOIN_VERSION, RINCOIN_VERSION_TAG, ("rincoin_release",)),
+    "yenten": (YENTEN_VERSION, YENTEN_VERSION_TAG, ()),  # No GPG signature available
 }
 
 disabled_coins = [
@@ -308,6 +312,12 @@ RIN_RPC_PORT = int(os.getenv("RIN_RPC_PORT", 9556))
 RIN_ONION_PORT = int(os.getenv("RIN_ONION_PORT", 9555))
 RIN_RPC_USER = os.getenv("RIN_RPC_USER", "")
 RIN_RPC_PWD = os.getenv("RIN_RPC_PWD", "")
+
+YTN_RPC_HOST = os.getenv("YTN_RPC_HOST", "127.0.0.1")
+YTN_RPC_PORT = int(os.getenv("YTN_RPC_PORT", 9982))
+YTN_ONION_PORT = int(os.getenv("YTN_ONION_PORT", 29252))
+YTN_RPC_USER = os.getenv("YTN_RPC_USER", "")
+YTN_RPC_PWD = os.getenv("YTN_RPC_PWD", "")
 
 TOR_PROXY_HOST = os.getenv("TOR_PROXY_HOST", "127.0.0.1")
 TOR_PROXY_PORT = int(os.getenv("TOR_PROXY_PORT", 9050))
@@ -661,10 +671,10 @@ def extractCore(coin, version_data, settings, bin_dir, release_path, extra_opts=
     logger.info(f"Extracting core {coin} v{version}{version_tag}")
     extract_core_overwrite = extra_opts.get("extract_core_overwrite", True)
 
-    if coin in ("monero", "firo", "wownero"):
+    if coin in ("monero", "firo", "wownero", "yenten"):
         if coin in ("monero", "wownero"):
             bins = [coin + "d", coin + "-wallet-rpc"]
-        elif coin == "firo":
+        elif coin in ("firo", "yenten"):
             bins = [coin + "d", coin + "-cli", coin + "-tx"]
         else:
             raise ValueError("Unknown coin")
@@ -802,7 +812,7 @@ def prepareCore(coin, version_data, settings, data_dir, extra_opts={}):
         if coin == "particl":
             filename_extra = PARTICL_LINUX_EXTRA
 
-    signing_key_name = signers[0]
+    signing_key_name = signers[0] if signers else ""
     if coin == "monero":
         use_file_ext = "tar.bz2" if FILE_EXT == "tar.gz" else FILE_EXT
         release_filename = "{}-{}-{}.{}".format(coin, version, BIN_ARCH, use_file_ext)
@@ -955,6 +965,21 @@ def prepareCore(coin, version_data, settings, data_dir, extra_opts={}):
             assert_filename = "{}-{}-{}-build.assert".format(coin, os_name, version)
             assert_url = f"https://raw.githubusercontent.com/tecnovert/guix.sigs/dogecoin/{version}/{signing_key_name}/noncodesigned.SHA256SUMS"
 
+        elif coin == "yenten":
+            # Yenten v6.0.4+: yenten-{version}-{platform}.tar.gz (flat archive)
+            if os_name == "osx":
+                os_suffix = "osx"
+            elif os_name == "win":
+                os_suffix = "win64"
+            else:  # linux
+                os_suffix = "linux"
+            file_ext = "tar.gz"
+            
+            release_filename = f"yenten-{version}-{os_suffix}.{file_ext}"
+            release_url = f"https://github.com/yentencoin/yenten/releases/download/{version}/{release_filename}"
+            # No GPG signatures available for Yenten
+            assert_url = None
+
         elif coin == "bitcoin":
             release_url = "https://bitcoincore.org/bin/bitcoin-core-{}/{}".format(
                 version, release_filename
@@ -1056,6 +1081,11 @@ def prepareCore(coin, version_data, settings, data_dir, extra_opts={}):
 
         release_path = os.path.join(bin_dir, release_filename)
         downloadRelease(release_url, release_path, extra_opts)
+
+        if assert_url is None:
+            logger.warning(f"No hash verification available for {coin}. Skipping signature check.")
+            extractCore(coin, version_data, settings, bin_dir, release_path, extra_opts)
+            return
 
         # Rename assert files with full version
         assert_filename = "{}-{}-{}-build-{}.assert".format(
@@ -1441,6 +1471,15 @@ def prepareDataDir(coin, settings, chain, particl_mnemonic, extra_opts={}):
                         DOGE_RPC_USER, salt, password_to_hmac(salt, DOGE_RPC_PWD)
                     )
                 )
+        elif coin == "yenten":
+            fp.write("pid=yentend.pid\n")
+            fp.write("prune=4000\n")
+            if YTN_RPC_USER != "":
+                fp.write(
+                    "rpcauth={}:{}${}\n".format(
+                        YTN_RPC_USER, salt, password_to_hmac(salt, YTN_RPC_PWD)
+                    )
+                )
         elif coin == "bitcoin":
             fp.write("deprecatedrpc=create_bdb\n")
             fp.write("prune=2000\n")
@@ -1661,6 +1700,8 @@ def modify_tor_config(
             default_onionport = LTC_ONION_PORT
         elif coin == "dogecoin":
             default_onionport = DOGE_ONION_PORT
+        elif coin == "yenten":
+            default_onionport = YTN_ONION_PORT
         elif coin in ("decred",):
             pass
         else:
@@ -2139,7 +2180,7 @@ def initialise_wallets(
     print("")
     for pair in coins_failed_to_initialise:
         c, e = pair
-        if c in (Coins.PIVX, Coins.BCH):
+        if c in (Coins.PIVX, Coins.BCH, Coins.YENTEN):
             print(
                 f"NOTE - Unable to initialise wallet for {getCoinName(c)}.  To complete setup click 'Reseed Wallet' from the ui page once chain is synced."
             )
@@ -2851,6 +2892,21 @@ def main():
             "core_version_no": getKnownVersion("rincoin"),
             "core_version_group": 21,
         },
+        "yenten": {
+            "connection_type": "rpc",
+            "manage_daemon": shouldManageDaemon("YTN"),
+            "rpchost": YTN_RPC_HOST,
+            "rpcport": YTN_RPC_PORT + port_offset,
+            "onionport": YTN_ONION_PORT + port_offset,
+            "datadir": os.getenv("YTN_DATA_DIR", os.path.join(data_dir, "yenten")),
+            "bindir": os.path.join(bin_dir, "yenten"),
+            "use_segwit": False,
+            "use_csv": False,
+            "blocks_confirmed": 6,
+            "conf_target": 2,
+            "core_version_no": getKnownVersion("yenten"),
+            "core_version_group": 18,  # Based on Bitcoin 0.18
+        },
     }
 
     for coin_name, coin_settings in chainclients.items():
@@ -2903,6 +2959,9 @@ def main():
     if RIN_RPC_USER != "":
         chainclients["rincoin"]["rpcuser"] = RIN_RPC_USER
         chainclients["rincoin"]["rpcpassword"] = RIN_RPC_PWD
+    if YTN_RPC_USER != "":
+        chainclients["yenten"]["rpcuser"] = YTN_RPC_USER
+        chainclients["yenten"]["rpcpassword"] = YTN_RPC_PWD
     if BTC_RPC_USER != "":
         chainclients["bitcoin"]["rpcuser"] = BTC_RPC_USER
         chainclients["bitcoin"]["rpcpassword"] = BTC_RPC_PWD
