@@ -1,0 +1,16 @@
+    rincoin_core:
+        image: i_rincoin
+        build:
+            context: rincoin
+            dockerfile: Dockerfile
+        container_name: rincoin_core
+        volumes:
+            - ${DATA_PATH}/rincoin:/data
+        expose:
+            - ${RIN_RPC_PORT}
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "3"
+        restart: unless-stopped

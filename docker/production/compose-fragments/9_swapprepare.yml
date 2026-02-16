@@ -17,6 +17,8 @@
             - ${DATA_PATH}/dash:/data/dash
             - ${DATA_PATH}/firo:/data/firo
             - ${DATA_PATH}/bitcoincash:/data/bitcoincash
+            - ${DATA_PATH}/rincoin:/data/rincoin
+            - ${DATA_PATH}/yenten:/data/yenten
         environment:
             - TZ
             - BSX_DOCKER_MODE
@@ -79,4 +81,14 @@
             - BCH_RPC_PORT
             - BCH_RPC_USER
             - BCH_RPC_PWD
+            - RIN_DATA_DIR
+            - RIN_RPC_HOST
+            - RIN_RPC_PORT
+            - RIN_RPC_USER
+            - RIN_RPC_PWD
+            - YTN_DATA_DIR
+            - YTN_RPC_HOST
+            - YTN_RPC_PORT
+            - YTN_RPC_USER
+            - YTN_RPC_PWD
         restart: "no"

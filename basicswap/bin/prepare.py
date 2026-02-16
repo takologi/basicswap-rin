@@ -1700,6 +1700,8 @@ def modify_tor_config(
             default_onionport = LTC_ONION_PORT
         elif coin == "dogecoin":
             default_onionport = DOGE_ONION_PORT
+        elif coin == "rincoin":
+            default_onionport = RIN_ONION_PORT
         elif coin == "yenten":
             default_onionport = YTN_ONION_PORT
         elif coin in ("decred",):

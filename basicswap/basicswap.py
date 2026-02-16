@@ -11838,7 +11838,7 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
             self.closeDB(cursor)
 
         if opts is not None and "coin_id" in opts:
-            return rv
+            return rv, skipped_coin_ids
 
         for c in self.activeCoins():
             coin_id = int(c)
