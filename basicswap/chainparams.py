@@ -217,7 +217,7 @@ chainparams = {
     Coins.RINCOIN: {
         "name": "rincoin",
         "ticker": "RIN",
-        "message_magic": "Rincoin Signed Message:\n",
+        "message_magic": "rincoin Signed Message:\n",
         "blocks_target": 60 * 1,
         "decimal_places": 8,
         "mainnet": {
