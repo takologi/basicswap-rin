@@ -41,12 +41,18 @@
     setupEventListeners: function() {
       const sendBidBtn = document.querySelector('button[name="sendbid"][value="Send Bid"]');
       if (sendBidBtn) {
-        sendBidBtn.onclick = this.showConfirmModal.bind(this);
+        sendBidBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          this.showConfirmModal();
+        });
       }
 
-      const modalCancelBtn = document.querySelector('#confirmModal .flex button:last-child');
+      const modalCancelBtn = document.querySelector('#confirmModal button[data-hide-modal]');
       if (modalCancelBtn) {
-        modalCancelBtn.onclick = this.hideConfirmModal.bind(this);
+        modalCancelBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          this.hideConfirmModal();
+        });
       }
 
       const mainCancelBtn = document.querySelector('button[name="cancel"]');
@@ -257,11 +263,12 @@
       if (modalReceiveCurrency) modalReceiveCurrency.textContent = ` ${tlaFrom}`;
       if (modalAmtSend) modalAmtSend.textContent = sendAmount.toFixed(8);
       if (modalSendCurrency) modalSendCurrency.textContent = ` ${tlaTo}`;
-      if (modalAddrFrom) modalAddrFrom.textContent = addrFrom || 'Default';
+      if (modalAddrFrom) modalAddrFrom.textContent = (addrFrom === '-1' ? 'New Address' : addrFrom);
       if (modalValidMins) modalValidMins.textContent = validMins;
 
       const modal = document.getElementById('confirmModal');
       if (modal) {
+        modal.style.display = '';
         modal.classList.remove('hidden');
       }
       return false;
@@ -270,9 +277,9 @@
     hideConfirmModal: function() {
       const modal = document.getElementById('confirmModal');
       if (modal) {
+        modal.style.display = 'none';
         modal.classList.add('hidden');
       }
-      return false;
     },
 
     updateModalValues: function() {
